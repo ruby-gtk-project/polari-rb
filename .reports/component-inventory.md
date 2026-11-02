@@ -10,10 +10,19 @@ Upstream totals: 25 `.js` source files, 16 `.ui` files, 1 stylesheet
 `src/lib/` that hold the IRC data model (`PolariRoom`, `PolariMessage`) and
 the Telepathy glue.
 
-Port totals on `ruby`: `lib/polari.rb`, `lib/polari/application.rb` (a stub
-`Adwaita::StatusPage` placeholder), `lib/polari/rb/version.rb`. **No
-user-facing component is ported yet.** Every row below except the application
-shell is a gap.
+Port totals on `ruby` (re-surveyed 2026-11-02): 26 files under
+`lib/polari/` plus `lib/polari.rb` and `lib/polari/rb/version.rb`, ~9,900
+lines, and the `data/` assets (`style.css`, `networks.json`, `sparql/`,
+`ontologies/`) are in place. **15 of the 18 user-facing units exist**; the
+three gaps are `initial_setup.rb` (first-run assistant),
+`url_preview.rb` (inline link preview) and `thumbnailer.rb` (the separate
+WebKit thumbnailer binary). On the non-UI side `telepathy_client.rb`,
+`client_factory.rb`, `tpl_importer.rb` and the `po/` catalogue are still
+missing.
+
+`lib/polari/signals.rb` has no upstream counterpart: it is a support file that
+gives plain Ruby objects the signal API upstream gets from GObject. Keep it
+out of parity counts.
 
 ## Join rule used
 
@@ -33,7 +42,7 @@ matching the one-upstream-file-to-one-`lib`-file rule.
 
 ## src/application.js + data/ui/main-window.ui (`menu hamburgerMenu`) — the app object, its actions and its menu
 
-→ `lib/polari/application.rb` — **exists as a stub only**
+→ `lib/polari/application.rb` — **exists** (409 lines)
 
 | Widget | × | CSS | Signals / Actions | Notes |
 |---|---:|---|---|---|
@@ -77,7 +86,7 @@ Repeater: `app.nth-room(i)` accelerators, i = 1..9. Conditional:
 
 ## src/mainWindow.js + data/ui/main-window.ui — the main window: sidebar, chat pane, search pane
 
-→ `lib/polari/main_window.rb` — **missing**
+→ `lib/polari/main_window.rb` — **exists** (620 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -113,7 +122,7 @@ Uses `ngettext` for the user-count accessible name.
 
 ## data/ui/shortcuts-dialog.ui — keyboard shortcuts window
 
-→ `lib/polari/shortcuts_dialog.rb` — **missing**
+→ `lib/polari/shortcuts_dialog.rb` — **exists** (71 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -125,7 +134,7 @@ All titles carry the `shortcut window` gettext context.
 
 ## src/roomList.js + data/ui/room-list-row.ui + data/ui/room-list-header.ui — the sidebar room list
 
-→ `lib/polari/room_list.rb` — **missing** (4 classes: `RoomList`, `RoomRow`, `RoomRowPopover`, `RoomListHeader`)
+→ `lib/polari/room_list.rb` — **exists** (1074 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -153,7 +162,7 @@ Dynamic CSS on rows (`muted`, `inactive`) and on the popover labels.
 
 ## src/roomStack.js — the chat pane: per-room views, info bars, empty state
 
-→ `lib/polari/room_stack.rb` — **missing** (6 classes)
+→ `lib/polari/room_stack.rb` — **exists** (376 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -169,7 +178,7 @@ Dynamic CSS on rows (`muted`, `inactive`) and on the popover labels.
 
 ## src/chatView.js — the message log
 
-→ `lib/polari/chat_view.rb` — **missing** (5 classes)
+→ `lib/polari/chat_view.rb` — **exists** (1039 lines)
 
 | Widget | × | CSS | Signals / Actions | Notes |
 |---|---:|---|---|---|
@@ -187,7 +196,7 @@ Uses `ngettext` for collapsed status-message summaries. `MAX_NICK_CHARS = 8`.
 
 ## src/entryArea.js + data/ui/entry-area.ui + data/ui/nick-popover.ui — the message entry and paste confirmation
 
-→ `lib/polari/entry_area.rb` — **missing** (3 classes)
+→ `lib/polari/entry_area.rb` — **exists** (569 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -205,7 +214,7 @@ Uses `ngettext` for collapsed status-message summaries. `MAX_NICK_CHARS = 8`.
 
 ## src/userList.js + data/ui/user-list.ui + user-popover.ui + user-details.ui — the connected-users sidebar
 
-→ `lib/polari/user_list.rb` — **missing** (5 classes)
+→ `lib/polari/user_list.rb` — **exists** (798 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -228,7 +237,7 @@ Uses `ngettext` for collapsed status-message summaries. `MAX_NICK_CHARS = 8`.
 
 ## src/connections.js + data/ui/connection-details.ui + connection-properties.ui — network list, network editor, properties dialog
 
-→ `lib/polari/connections.rb` — **missing** (4 classes)
+→ `lib/polari/connections.rb` — **exists** (616 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -249,7 +258,7 @@ Uses `ngettext` for collapsed status-message summaries. `MAX_NICK_CHARS = 8`.
 
 ## src/joinDialog.js + data/ui/join-room-dialog.ui — the join / add-network dialog
 
-→ `lib/polari/join_dialog.rb` — **missing**
+→ `lib/polari/join_dialog.rb` — **exists** (366 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -272,7 +281,7 @@ Uses `ngettext` for collapsed status-message summaries. `MAX_NICK_CHARS = 8`.
 
 ## src/serverRoomManager.js + data/ui/server-room-list.ui — the room list for one server
 
-→ `lib/polari/server_room_manager.rb` — **missing**
+→ `lib/polari/server_room_manager.rb` — **exists** (500 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -307,7 +316,7 @@ Uses `ngettext` for collapsed status-message summaries. `MAX_NICK_CHARS = 8`.
 
 ## src/searchView.js + data/ui/search-row.ui + search-section.ui — message search results
 
-→ `lib/polari/search_view.rb` — **missing** (3 classes)
+→ `lib/polari/search_view.rb` — **exists** (269 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -326,7 +335,7 @@ Backed by the SPARQL queries in `data/sparql/` (`search-messages.rq`,
 
 ## src/ircParser.js — slash commands and their feedback popover
 
-→ `lib/polari/irc_parser.rb` — **missing**
+→ `lib/polari/irc_parser.rb` — **exists** (410 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -342,7 +351,7 @@ user-facing string.
 
 ## src/tabCompletion.js — nick tab completion popup
 
-→ `lib/polari/tab_completion.rb` — **missing**
+→ `lib/polari/tab_completion.rb` — **exists** (292 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -363,7 +372,7 @@ user-facing string.
 
 ## src/pasteManager.js — drag-and-drop and paste target
 
-→ `lib/polari/paste_manager.rb` — **missing**
+→ `lib/polari/paste_manager.rb` — **exists** (102 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -387,23 +396,23 @@ not have; flag as a deferred/possibly-dropped unit.
 | Upstream | → port file | Kind | Present |
 |---|---|---|---|
 | `src/main.js` | `exe/polari` (exists) + `lib/polari.rb` | entry point | partially |
-| `src/utils.js` | `lib/polari/utils.rb` | helpers (URL/channel finding, `formatTimePassed`, `formatDateTime`, keyring, Adw.Toast on failed link opens) | missing |
-| `src/accountsMonitor.js` | `lib/polari/accounts_monitor.rb` | Telepathy accounts, per-account `Gio.Settings` | missing |
-| `src/roomManager.js` | `lib/polari/room_manager.rb` | room registry, `saved-channel-list` | missing |
-| `src/networksManager.js` | `lib/polari/networks_manager.rb` | reads `data/networks.json` | missing |
-| `src/telepathyClient.js` | `lib/polari/telepathy_client.rb` | the IRC transport; also builds `Gio.Notification`s | missing |
-| `src/userTracker.js` | `lib/polari/user_tracker.rb` | online/offline tracking; installs per-user `Gio.SimpleAction`s in a loop and raises `Gio.Notification`s | missing |
-| `src/logger.js` | `lib/polari/logger.rb` | `LogWalker`, `LogImporter`, `LogFinder` over Tracker | missing |
-| `src/lib/polari-room.c/.h` | `lib/polari/room.rb` | the room model | missing |
-| `src/lib/polari-message.c/.h` | `lib/polari/message.rb` | the message model | missing |
-| `src/lib/polari-util.c/.h` | `lib/polari/util.rb` | C helpers (+ `src/tests/test-util.c` has their tests) | missing |
-| `src/lib/polari-client-factory.c/.h` | `lib/polari/client_factory.rb` | Telepathy client factory | missing |
-| `src/lib/polari-tpl-importer.c/.h` | `lib/polari/tpl_importer.rb` | old-log importer behind the import banner | missing |
-| `data/org.gnome.Polari.gschema.xml` | `lib/polari/settings.rb` | 2 schemas, 11 keys | missing |
-| `data/css/style.css` | `data/style.css` loaded by a `Gtk::CssProvider` | stylesheet, ~40 app classes | missing |
-| `data/networks.json` | `data/networks.json` | data asset | missing |
-| `data/sparql/*.rq`, `data/ontologies/polari.ontology` | `data/sparql/`, `data/ontologies/` | search backend | missing |
-| `po/` (63 locales, 31 POTFILES entries) | `po/` | translation catalogue | missing |
+| `src/utils.js` | `lib/polari/utils.rb` | helpers (URL/channel finding, `formatTimePassed`, `formatDateTime`, keyring, Adw.Toast on failed link opens) | yes |
+| `src/accountsMonitor.js` | `lib/polari/accounts_monitor.rb` | Telepathy accounts, per-account `Gio.Settings` | yes |
+| `src/roomManager.js` | `lib/polari/room_manager.rb` | room registry, `saved-channel-list` | yes |
+| `src/networksManager.js` | `lib/polari/networks_manager.rb` | reads `data/networks.json` | yes |
+| `src/telepathyClient.js` | `lib/polari/telepathy_client.rb` | the IRC transport; also builds `Gio.Notification`s | **no** |
+| `src/userTracker.js` | `lib/polari/user_tracker.rb` | online/offline tracking; installs per-user `Gio.SimpleAction`s in a loop and raises `Gio.Notification`s | yes |
+| `src/logger.js` | `lib/polari/logger.rb` | `LogWalker`, `LogImporter`, `LogFinder` over Tracker | yes |
+| `src/lib/polari-room.c/.h` | `lib/polari/room.rb` | the room model | yes |
+| `src/lib/polari-message.c/.h` | `lib/polari/message.rb` | the message model | yes |
+| `src/lib/polari-util.c/.h` | `lib/polari/util.rb` | C helpers (+ `src/tests/test-util.c` has their tests) | yes |
+| `src/lib/polari-client-factory.c/.h` | `lib/polari/client_factory.rb` | Telepathy client factory | **no** |
+| `src/lib/polari-tpl-importer.c/.h` | `lib/polari/tpl_importer.rb` | old-log importer behind the import banner | **no** |
+| `data/org.gnome.Polari.gschema.xml` | `lib/polari/settings.rb` | 2 schemas, 11 keys | yes |
+| `data/css/style.css` | `data/style.css` loaded by a `Gtk::CssProvider` | stylesheet, ~40 app classes | yes |
+| `data/networks.json` | `data/networks.json` | data asset | yes |
+| `data/sparql/*.rq`, `data/ontologies/polari.ontology` | `data/sparql/`, `data/ontologies/` | search backend | yes |
+| `po/` (63 locales, 31 POTFILES entries) | `po/` | translation catalogue | **no** |
 
 ## Notes for the port
 
