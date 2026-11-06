@@ -15,6 +15,7 @@ require_relative 'paste_manager'
 require_relative 'main_window'
 require_relative 'shortcuts_dialog'
 require_relative 'connections'
+require_relative 'tpl_importer'
 
 module Polari
   # Application is the entry point: it installs the actions and their
@@ -148,6 +149,23 @@ module Polari
       def on_activate
         window.present
         update_leave_action
+        maybe_import_logs
+      end
+
+      # _maybeImportLogs(): telepathy-logger's own chat logs, imported once
+      # into the Tracker/TinySPARQL store — skipped once that store exists,
+      # the same "did we already do this" check upstream makes against
+      # chatlogs.v1 existing, against this port's chatlogs.v2.
+      def maybe_import_logs
+        store_path = File.join(Utils.polari_data_dir, 'chatlogs.v2')
+
+        unless Dir.exist?(store_path)
+          Thread.new do
+            TplImporter.new.import_all
+          rescue StandardError => e
+            warn "Failed to import telepathy-logger logs: #{e.message}"
+          end
+        end
       end
 
       def install_actions

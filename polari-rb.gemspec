@@ -96,6 +96,17 @@ Gem::Specification.new do |spec|
   spec.executables = ["polari"]
   spec.require_paths = ["lib"]
 
+  # Runtime: the GTK4/Libadwaita toolkit this app is built with, plus the
+  # TinySPARQL/Tracker binding the chat log store and the legacy-log importer
+  # need (see lib/polari/logger.rb and lib/polari/tpl_importer.rb).
+  spec.add_dependency("glib2", "~> 4.3")
+  spec.add_dependency("gtk4", "~> 4.3")
+  spec.add_dependency("adwaita", "~> 4.3")
+  spec.add_dependency("tsparql", "~> 1.0")
+  # Ruby 3.0+ moved rexml out of the default gems; the legacy-log importer
+  # (lib/polari/tpl_importer.rb) parses telepathy-logger's XML with it.
+  spec.add_dependency("rexml", "~> 3.3")
+
   # NOTE: It is preferable to list development dependencies in the gemspec due to increased
   #       visibility and discoverability.
   #       However, development dependencies in gemspec will install on
