@@ -20,8 +20,18 @@ rescue LoadError => error
 end
 
 # External RSpec & related config
-require "kettle/test/rspec"
-# `kettle/test/rspec` installs harness helpers documented in spec/README.md.
+begin
+  require "kettle/test/rspec"
+  # `kettle/test/rspec` installs harness helpers documented in spec/README.md.
+rescue LoadError => error
+  # The kettle-test bundle is a development dependency and is not always
+  # installed — `nix develop` carries the app's runtime gems plus rspec, and
+  # the full kettle-test harness is not always on PATH there. Fall back to
+  # plain RSpec rather than failing every spec run.
+  raise error unless error.message.include?("kettle")
+
+  warn "NOTE: kettle-test isn't installed; running with plain RSpec."
+end
 
 # This library
 require "polari/rb"
