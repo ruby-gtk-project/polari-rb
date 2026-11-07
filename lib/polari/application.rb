@@ -17,6 +17,7 @@ require_relative 'initial_setup'
 require_relative 'shortcuts_dialog'
 require_relative 'connections'
 require_relative 'tpl_importer'
+require_relative 'telepathy_client'
 
 module Polari
   # Application is the entry point: it installs the actions and their
@@ -31,11 +32,21 @@ module Polari
   # join-room/message-user becomes the separate query-user action (QUERY
   # presents the conversation, MSG does not).
   #
-  # Not wired up here, because the components are not ported yet: starting the
-  # Telepathy client (app.start-client) and the telepathy-logger import that
-  # drives the import banner.
+  # Starts the IRC transport (telepathy_client.rb's TelepathyClient, this
+  # port's whole replacement for registering a Tp.BaseClient) alongside the
+  # other singletons on_startup already builds, so an enabled account
+  # actually connects rather than just notifying "connecting" forever.
   class Application
     APPLICATION_ID = 'org.gnome.Polari'
+
+    # The one instance exe/polari builds, so telepathy_client.rb's transport
+    # — which has no GObject property to bind the running Application
+    # through — can still reach the main window to deliver a message.
+    def self.current = @current
+
+    class << self
+      attr_writer :current
+    end
 
     # Name, parameter type and accelerators of every action, as
     # vfunc_startup's actionEntries lists them.
@@ -90,6 +101,8 @@ module Polari
     ].freeze
 
     def build
+      self.class.current = self
+
       app.tap do
         app.signal_connect('startup') { on_startup }
         app.signal_connect('activate') { on_activate }
@@ -109,6 +122,7 @@ module Polari
     def user_status_monitor = @user_status_monitor ||= UserStatusMonitor.default
     def server_room_manager = @server_room_manager ||= ServerRoomManager.default
     def paste_manager = @paste_manager ||= PasteManager.new
+    def telepathy_client = @telepathy_client ||= TelepathyClient.new(accounts_monitor: accounts_monitor, room_manager: room_manager)
 
     def window = @window ||= MainWindow.new(app, settings: settings).build
 
@@ -147,6 +161,7 @@ module Polari
         user_status_monitor
         server_room_manager
         paste_manager
+        telepathy_client.start
       end
 
       def on_activate
