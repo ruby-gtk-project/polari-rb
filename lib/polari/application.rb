@@ -13,6 +13,7 @@ require_relative 'user_tracker'
 require_relative 'server_room_manager'
 require_relative 'paste_manager'
 require_relative 'main_window'
+require_relative 'initial_setup'
 require_relative 'shortcuts_dialog'
 require_relative 'connections'
 require_relative 'tpl_importer'
@@ -31,8 +32,8 @@ module Polari
   # presents the conversation, MSG does not).
   #
   # Not wired up here, because the components are not ported yet: starting the
-  # Telepathy client (app.start-client), the telepathy-logger import that
-  # drives the import banner, and the first-run setup window.
+  # Telepathy client (app.start-client) and the telepathy-logger import that
+  # drives the import banner.
   class Application
     APPLICATION_ID = 'org.gnome.Polari'
 
@@ -111,6 +112,8 @@ module Polari
 
     def window = @window ||= MainWindow.new(app, settings: settings).build
 
+    def initial_setup_window = @initial_setup_window ||= InitialSetupWindow.new(app).build
+
     def css_provider
       @css_provider ||= Gtk::CssProvider.new.tap do |provider|
         provider.load(path: File.expand_path('../../data/style.css', __dir__))
@@ -147,10 +150,28 @@ module Polari
       end
 
       def on_activate
-        window.present
-        update_leave_action
-        watch_leave_action
-        maybe_import_logs
+        if app.active_window.nil?
+          if needs_initial_setup?
+            initial_setup_window.present
+          else
+            window.present
+            update_leave_action
+            watch_leave_action
+          end
+          maybe_import_logs
+        else
+          app.active_window.present
+        end
+      end
+
+      # _needsInitialSetup(): a forced first run, or no rooms saved from a
+      # previous one and the one-time marker not set yet.
+      def needs_initial_setup?
+        if ENV.delete('POLARI_FORCE_INITIAL_SETUP')
+          return true
+        end
+
+        Utils.needs_onetime_action?('initial-setup') && settings['saved-channel-list'].empty?
       end
 
       # Upstream keeps app.leave-current-room's enabled state bound to

@@ -30,13 +30,22 @@
 require 'fileutils'
 require 'tmpdir'
 
-# A scratch config directory, so a run never reads or writes the real one.
-ENV['XDG_CONFIG_HOME'] = Dir.mktmpdir('polari-drive')
+# Scratch config and data directories, so a run never reads or writes the
+# real ones — the data dir in particular is where the one-time-action
+# marker (see Utils.needs_onetime_action?) and the imported chat log store
+# live.
+ENV['XDG_CONFIG_HOME'] = Dir.mktmpdir('polari-drive-config')
+ENV['XDG_DATA_HOME'] = Dir.mktmpdir('polari-drive-data')
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 
 require 'polari'
 require_relative 'gtk_driver'
+
+# This driver exercises the main window, not the first-run assistant (see
+# test/drive_initial_setup.rb for that), so mark first-run setup as already
+# done the way a returning user's machine would have it.
+Polari::Utils.needs_onetime_action?('initial-setup')
 
 SHOTS = File.expand_path('../tmp/shots', __dir__)
 FileUtils.rm_rf(SHOTS)
