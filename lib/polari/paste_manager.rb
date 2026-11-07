@@ -78,7 +78,11 @@ module Polari
       end
 
       def add_file_drop_target(widget, on_file)
-        Gtk::DropTarget.new(Gio::File, :copy).tap do |target|
+        # Gtk::DropTarget.new resolves its `type` argument to a GType for the
+        # DropTarget's underlying GI constructor; a concrete class like
+        # String resolves on its own, but Gio::File is an interface, which
+        # the binding only resolves when given the GType explicitly.
+        Gtk::DropTarget.new(Gio::File.gtype, :copy).tap do |target|
           target.signal_connect('drop') do |_t, value, _x, _y|
             if can_drop? && on_file && handle_file?(value)
               on_file.call(value)

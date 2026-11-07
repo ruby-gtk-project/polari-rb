@@ -873,7 +873,7 @@ module Polari
         app.lookup_action('nth-room').then do |action|
           if action
             action.signal_connect('activate') do |_a, param|
-              select_room_at_index(param.value.to_i - 1)
+              select_room_at_index(param.to_i - 1)
             end
           end
         end

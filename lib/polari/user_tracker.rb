@@ -273,7 +273,7 @@ module Polari
 
       def should_notify_nick?(nick)
         @app.get_action_state(internal_notify_action_name(nick)).then do |state|
-          state ? state.value : false
+          state ? state : false
         end
       end
 
@@ -336,7 +336,7 @@ module Polari
       end
 
       def toggle_mute(params, mute)
-        account_path, nick = params.value
+        account_path, nick = params
         @accounts_monitor.lookup_account(account_path).then do |account|
           if account
             tracker = user_tracker_for_account(account)

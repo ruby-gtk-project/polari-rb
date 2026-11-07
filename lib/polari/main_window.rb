@@ -51,7 +51,12 @@ module Polari
       @settings.apply_to(self)
     end
 
-    attr_reader :active_room
+    # Not attr_reader: the ivar behind the active room is @room (set by
+    # #active_room=, read everywhere else in this class), so a plain
+    # attr_reader here would read the always-nil @active_room instead.
+    def active_room = @room
+
+    attr_reader :join_dialog
 
     def build
       tap do |window|
@@ -462,7 +467,7 @@ module Polari
         end
 
         @app.signal_connect('action-state-changed::user-list') do |_app, _name, value|
-          if value.value
+          if value
             user_list_popover.popup
           else
             user_list_popover.popdown
@@ -574,10 +579,22 @@ module Polari
         end
 
         user_list_button_content.label = members.to_s
-        show_user_list_button.update_property(
-          [Gtk::AccessibleProperty::LABEL],
-          [members == 1 ? '1 user' : "#{members} users"],
-        )
+
+        # Gtk::Accessible#update_property's C signature takes a C array of
+        # GtkAccessibleProperty enums; the ruby-gnome gobject-introspection
+        # loader has no marshalling for an enum-typed C array and raises
+        # NotImplementedError ("TODO: in Ruby -> GIArgument(array/C)
+        # [interface(enum)](GtkAccessibleProperty)") for every call shape
+        # tried, scalar arguments included — a binding gap, not a port bug.
+        # The accessible label is skipped rather than crashing the window.
+        begin
+          show_user_list_button.update_property(
+            [Gtk::AccessibleProperty::LABEL],
+            [members == 1 ? '1 user' : "#{members} users"],
+          )
+        rescue NotImplementedError
+          nil
+        end
       end
 
       # The window title is the room name; the subtitle is its topic, with

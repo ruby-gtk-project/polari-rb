@@ -185,13 +185,13 @@ module Polari
 
     def open_url_action
       @open_url_action ||= Gio::SimpleAction.new('open-url', GLib::VariantType.new('s')).tap do |action|
-        action.signal_connect('activate') { |_a, param| Utils.open_url(param.value) }
+        action.signal_connect('activate') { |_a, param| Utils.open_url(param) }
       end
     end
 
     def copy_url_action
       @copy_url_action ||= Gio::SimpleAction.new('copy-url', GLib::VariantType.new('s')).tap do |action|
-        action.signal_connect('activate') { |_a, param| clipboard.set(param.value) }
+        action.signal_connect('activate') { |_a, param| clipboard.set(param) }
       end
     end
 

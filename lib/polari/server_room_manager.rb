@@ -338,7 +338,7 @@ module Polari
       end
 
       def custom_room_item?(iter)
-        store.get_path(iter).to_str == store.get_path(@custom_room_item).to_str
+        store.get_path(iter).to_s == store.get_path(@custom_room_item).to_s
       end
 
       def visible_row?(model, iter)

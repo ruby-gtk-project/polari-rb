@@ -149,7 +149,19 @@ module Polari
       def on_activate
         window.present
         update_leave_action
+        watch_leave_action
         maybe_import_logs
+      end
+
+      # Upstream keeps app.leave-current-room's enabled state bound to
+      # window:active-room with a property notify
+      # (vfunc_window_added in src/application.js); a Ruby MainWindow has no
+      # such GObject property to bind to (see MainWindow's own comment on
+      # why), so this re-checks it on every event that can change which room
+      # is active.
+      def watch_leave_action
+        room_manager.connect('room-presented') { update_leave_action }
+        room_manager.connect('room-removed') { update_leave_action }
       end
 
       # _maybeImportLogs(): telepathy-logger's own chat logs, imported once
@@ -223,59 +235,64 @@ module Polari
         end
       end
 
+      # Upstream's actions declare their GVariant type ('as', 's', ...), and
+      # the Ruby GLib bindings hand the activate signal's handler the
+      # already-unwrapped native value for that type (an Array for 'as', a
+      # String for 's') rather than a GLib::Variant still carrying a #value
+      # — there is no #value to call here.
       def connect_room_actions
         on_action('join-room') do |_a, parameter|
-          account_path, channel = parameter.value
+          account_path, channel = parameter
           room_manager.join_room(account_path, channel, present: true)
         end
 
         on_action('message-user') do |_a, parameter|
-          account_path, nick, message = parameter.value
+          account_path, nick, message = parameter
           send_private_message(account_path, nick, message)
         end
 
         on_action('query-user') do |_a, parameter|
-          account_path, nick = parameter.value
+          account_path, nick = parameter
           room_manager.message_user(account_path, nick, present: true)
         end
 
         on_action('leave-room') do |_a, parameter|
-          id, = parameter.value
+          id, = parameter
           room_manager.leave_room(id)
         end
 
         on_action('reconnect-room') do |_a, parameter|
-          reconnect_room(parameter.value)
+          reconnect_room(parameter)
         end
       end
 
       def connect_account_actions
         on_action('connect-account') do |_a, parameter|
-          request_presence(parameter.value, Account::PRESENCE_AVAILABLE)
+          request_presence(parameter, Account::PRESENCE_AVAILABLE)
         end
         on_action('disconnect-account') do |_a, parameter|
-          request_presence(parameter.value, Account::PRESENCE_OFFLINE)
+          request_presence(parameter, Account::PRESENCE_OFFLINE)
         end
         on_action('reconnect-account') do |_a, parameter|
-          request_presence(parameter.value, Account::PRESENCE_AVAILABLE)
+          request_presence(parameter, Account::PRESENCE_AVAILABLE)
         end
         on_action('remove-connection') do |_a, parameter|
-          remove_connection(parameter.value)
+          remove_connection(parameter)
         end
         on_action('undo-remove-connection') do |_a, parameter|
-          undo_remove_connection(parameter.value)
+          undo_remove_connection(parameter)
         end
         on_action('edit-connection') do |_a, parameter|
-          edit_connection(parameter.value)
+          edit_connection(parameter)
         end
         on_action('save-identify-password') do |_a, parameter|
-          save_identify_password(parameter.value)
+          save_identify_password(parameter)
         end
         on_action('discard-identify-password') do |_a, parameter|
-          discard_identify_password(parameter.value)
+          discard_identify_password(parameter)
         end
         on_action('authenticate-account') do |_a, parameter|
-          account_path, password = parameter.value
+          account_path, password = parameter
           authenticate_account(account_path, password)
         end
       end
@@ -294,13 +311,15 @@ module Polari
         app.lookup_action('leave-current-room').enabled = !window.active_room.nil?
       end
 
+      # Gio::Action#state hands back the already-unwrapped native value (a
+      # plain true/false here), not a GLib::Variant still carrying a #value.
       def toggle_action(action)
-        action.change_state(GLib::Variant.new(!action.state.value))
+        action.change_state(GLib::Variant.new(!action.state))
       end
 
       def toggle_run_in_background(action)
         toggle_action(action)
-        settings['run-in-background'] = action.state.value
+        settings['run-in-background'] = action.state
       end
 
       def send_private_message(account_path, nick, message)
