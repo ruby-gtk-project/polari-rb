@@ -32,6 +32,17 @@ require_relative 'gtk_driver'
 SHOTS = File.expand_path('../tmp/shots-initial-setup', __dir__)
 FileUtils.rm_rf(SHOTS)
 
+# Turns the main loop over for `ms` milliseconds and comes back, the way
+# test/drive_polari.rb's own pump does — a NavigationView page push needs an
+# extra frame to realise before a screenshot of it finds a render node.
+def pump(ms)
+  (Process.clock_gettime(Process::CLOCK_MONOTONIC) + (ms / 1000.0)).then do |deadline|
+    while Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
+      GLib::MainContext.default.iteration(false)
+    end
+  end
+end
+
 GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
   d.window { polari_app.initial_setup_window }
 
@@ -69,6 +80,7 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
     d.check('Next starts insensitive (no room picked yet)') { !window.next_button.sensitive? }
     d.check("Back is labelled '_Back'") { window.prev_button.label == '_Back' }
     d.check("Next is labelled '_Done'") { window.next_button.label == '_Done' }
+    pump(100)
     d.shot('02-room-page')
   end
 
@@ -85,6 +97,7 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
     d.check('the half-made account was removed from the monitor') do
       Polari::AccountsMonitor.default.lookup_account(account.object_path).nil?
     end
+    pump(100)
     d.shot('03-back-to-connections')
   end
 end

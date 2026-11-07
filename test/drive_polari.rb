@@ -246,6 +246,7 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
       details.name_row.text = 'Custom Net'
       details.nick_row.text = 'custom-nick'
       d.check('the form reports it can confirm now') { details.can_confirm? }
+      pump(100)
       d.shot('05-join-dialog-custom', dialog)
       dialog.add_button.signal_emit('clicked')
       d.check('a second account now exists') { Polari::AccountsMonitor.default.accounts.length == 2 }
@@ -348,6 +349,51 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
     end
   end
 
+  d.step('typing a partial nick and pressing Tab completes it') do
+    view = polari_app.window.room_stack.view_for_room(@room)
+    view.entry_area.chat_entry.text = 'ali'
+    view.entry_area.chat_entry.position = view.entry_area.chat_entry.text.length
+    # Stands in for the real keypress TabCompletion's key controller would
+    # see — see test/drive_polari.rb's FakeChannel comment for why this
+    # port's drive scripts stand in for a UI gesture with the handler it
+    # would trigger.
+    view.entry_area.completion.send(:on_key_pressed, Gdk::Keyval::KEY_Tab)
+  end
+
+  d.step('the nick was completed from the one member in the room') do
+    view = polari_app.window.room_stack.view_for_room(@room)
+    d.check('the entry now reads the completed nick') { view.entry_area.chat_entry.text == 'alice: ' }
+    view.entry_area.chat_entry.text = ''
+  end
+
+  d.step('pasting multiple lines of text opens the paste confirmation page') do
+    view = polari_app.window.room_stack.view_for_room(@room)
+    view.entry_area.paste_text("line one\nline two", 2)
+  end
+
+  d.step('the entry area switched to its paste-confirmation page') do
+    view = polari_app.window.room_stack.view_for_room(@room)
+    d.check('confirmation_visible? reports true') { view.entry_area.confirmation_visible? }
+    d.check('the confirm label mentions the line count') { view.entry_area.confirm_label.label.include?('2') }
+    d.check('Cancel and Paste are both sensitive') do
+      view.entry_area.cancel_button.sensitive? && view.entry_area.paste_button.sensitive?
+    end
+    d.shot('07b-paste-confirmation')
+  end
+
+  d.step('Cancel dismisses the paste confirmation without uploading anything') do
+    view = polari_app.window.room_stack.view_for_room(@room)
+    view.entry_area.cancel_button.signal_emit('clicked')
+  end
+
+  d.step('the entry area is back on its default page and nothing was sent') do
+    view = polari_app.window.room_stack.view_for_room(@room)
+    d.check('confirmation_visible? reports false') { !view.entry_area.confirmation_visible? }
+    d.check('the fake channel received nothing from the cancelled paste') do
+      !@channel.sent.any? { |text| text.include?('line one') }
+    end
+  end
+
   d.step('opening the user list shows the one member') do
     polari_app.app.activate_action('user-list', nil)
   end
@@ -433,6 +479,7 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
       d.check('Apply starts insensitive (nothing changed yet)') { !dialog.apply_button.sensitive? }
       details.nick_row.text = 'tester2'
       d.check('Apply is sensitive once something changes') { dialog.apply_button.sensitive? }
+      pump(100)
       d.shot('12-connection-properties', dialog)
       dialog.cancel_button.signal_emit('clicked')
     end
