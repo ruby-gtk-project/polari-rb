@@ -10,15 +10,20 @@ Upstream totals: 25 `.js` source files, 16 `.ui` files, 1 stylesheet
 `src/lib/` that hold the IRC data model (`PolariRoom`, `PolariMessage`) and
 the Telepathy glue.
 
-Port totals on `ruby` (re-surveyed 2026-11-02): 26 files under
-`lib/polari/` plus `lib/polari.rb` and `lib/polari/rb/version.rb`, ~9,900
+Port totals on `ruby` (re-surveyed 2026-11-07): 28 files under
+`lib/polari/` plus `lib/polari.rb` and `lib/polari/rb/version.rb`, ~10,180
 lines, and the `data/` assets (`style.css`, `networks.json`, `sparql/`,
 `ontologies/`) are in place. **15 of the 18 user-facing units exist**; the
 three gaps are `initial_setup.rb` (first-run assistant),
 `url_preview.rb` (inline link preview) and `thumbnailer.rb` (the separate
-WebKit thumbnailer binary). On the non-UI side `telepathy_client.rb`,
-`client_factory.rb`, `tpl_importer.rb` and the `po/` catalogue are still
-missing.
+WebKit thumbnailer binary) — unchanged since the 2026-11-02 survey. On the
+non-UI side `tpl_importer.rb` (the old-log importer) was ported since,
+backed by the `tsparql` gem (`require 'tsparql'`), and a headless drive
+harness (`bin/drive` or equivalent — see the dev shell banner) was added.
+`telepathy_client.rb`, `client_factory.rb` and the `po/` catalogue are
+still missing; `grep -rn "telepathy_client\|client_factory" lib/` finds no
+references anywhere in the port, so these are not stubbed, they simply do
+not exist yet.
 
 `lib/polari/signals.rb` has no upstream counterpart: it is a support file that
 gives plain Ruby objects the signal API upstream gets from GObject. Keep it
@@ -402,12 +407,12 @@ not have; flag as a deferred/possibly-dropped unit.
 | `src/networksManager.js` | `lib/polari/networks_manager.rb` | reads `data/networks.json` | yes |
 | `src/telepathyClient.js` | `lib/polari/telepathy_client.rb` | the IRC transport; also builds `Gio.Notification`s | **no** |
 | `src/userTracker.js` | `lib/polari/user_tracker.rb` | online/offline tracking; installs per-user `Gio.SimpleAction`s in a loop and raises `Gio.Notification`s | yes |
-| `src/logger.js` | `lib/polari/logger.rb` | `LogWalker`, `LogImporter`, `LogFinder` over Tracker | yes |
+| `src/logger.js` | `lib/polari/logger.rb` | `LogWalker`, `LogImporter`, `LogFinder` over Tracker (via the `tsparql` gem) | yes |
 | `src/lib/polari-room.c/.h` | `lib/polari/room.rb` | the room model | yes |
 | `src/lib/polari-message.c/.h` | `lib/polari/message.rb` | the message model | yes |
 | `src/lib/polari-util.c/.h` | `lib/polari/util.rb` | C helpers (+ `src/tests/test-util.c` has their tests) | yes |
 | `src/lib/polari-client-factory.c/.h` | `lib/polari/client_factory.rb` | Telepathy client factory | **no** |
-| `src/lib/polari-tpl-importer.c/.h` | `lib/polari/tpl_importer.rb` | old-log importer behind the import banner | **no** |
+| `src/lib/polari-tpl-importer.c/.h` | `lib/polari/tpl_importer.rb` | old-log importer behind the import banner, Tracker-backed via `tsparql` | **yes** (ported since the 2026-11-02 survey) |
 | `data/org.gnome.Polari.gschema.xml` | `lib/polari/settings.rb` | 2 schemas, 11 keys | yes |
 | `data/css/style.css` | `data/style.css` loaded by a `Gtk::CssProvider` | stylesheet, ~40 app classes | yes |
 | `data/networks.json` | `data/networks.json` | data asset | yes |
