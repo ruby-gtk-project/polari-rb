@@ -10,20 +10,22 @@ Upstream totals: 25 `.js` source files, 16 `.ui` files, 1 stylesheet
 `src/lib/` that hold the IRC data model (`PolariRoom`, `PolariMessage`) and
 the Telepathy glue.
 
-Port totals on `ruby` (re-surveyed 2026-11-07): 28 files under
-`lib/polari/` plus `lib/polari.rb` and `lib/polari/rb/version.rb`, ~10,180
-lines, and the `data/` assets (`style.css`, `networks.json`, `sparql/`,
-`ontologies/`) are in place. **15 of the 18 user-facing units exist**; the
-three gaps are `initial_setup.rb` (first-run assistant),
+Port totals on `ruby` (re-surveyed 2026-11-07, after commit `084b2321`
+"Port the first-run setup window"): 29 files under `lib/polari/`
+(including `lib/polari/rb/version.rb`) plus `lib/polari.rb` itself, 30
+Ruby files and ~10,456 lines total, and the
+`data/` assets (`style.css`, `networks.json`, `sparql/`, `ontologies/`) are
+in place. **16 of the 18 user-facing units now exist**; `initial_setup.rb`
+(first-run assistant, 252 lines) was ported since the prior pass of this
+survey and is no longer a gap. The two remaining UI gaps are
 `url_preview.rb` (inline link preview) and `thumbnailer.rb` (the separate
-WebKit thumbnailer binary) — unchanged since the 2026-11-02 survey. On the
-non-UI side `tpl_importer.rb` (the old-log importer) was ported since,
-backed by the `tsparql` gem (`require 'tsparql'`), and a headless drive
-harness (`bin/drive` or equivalent — see the dev shell banner) was added.
-`telepathy_client.rb`, `client_factory.rb` and the `po/` catalogue are
-still missing; `grep -rn "telepathy_client\|client_factory" lib/` finds no
-references anywhere in the port, so these are not stubbed, they simply do
-not exist yet.
+WebKit thumbnailer binary). On the non-UI side `tpl_importer.rb` (the
+old-log importer) was ported, backed by the `tsparql` gem
+(`require 'tsparql'`), and a headless drive harness (see the dev shell
+banner) was added. `telepathy_client.rb`, `client_factory.rb` and the `po/`
+catalogue are still missing; `grep -rn "telepathy_client\|client_factory"
+lib/` finds no references anywhere in the port, so these are not stubbed,
+they simply do not exist yet.
 
 `lib/polari/signals.rb` has no upstream counterpart: it is a support file that
 gives plain Ruby objects the signal API upstream gets from GObject. Keep it
@@ -303,7 +305,7 @@ Uses `ngettext` for collapsed status-message summaries. `MAX_NICK_CHARS = 8`.
 
 ## src/initialSetup.js + data/ui/initial-setup-window.ui — first-run setup assistant
 
-→ `lib/polari/initial_setup.rb` — **missing**
+→ `lib/polari/initial_setup.rb` — **exists** (252 lines)
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
