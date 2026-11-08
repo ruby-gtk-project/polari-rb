@@ -1,197 +1,137 @@
-# Accountability ensurance — Polari
+# Accountability ensurance — Polari (refresh, 2026-11-08)
 
-`scripts/find-excuses.sh .` found 5 hits mechanically. Reading the files
-around every "not ported yet" / "needed... before... planned" sentence in
-`lib/` and `.reports/component-inventory.md` found a larger, consistent
-pattern the script's regex does not catch: the entire missing IRC-transport
-layer is described, calmly and repeatedly, as a thing with a plausible
-reason, never as a debt.
+Grepped `lib/`, `exe/`, `.reports/`, and the repo root for `TODO`, `FIXME`,
+"not implemented", "for now", "in a future", "not yet", "stub", and for any
+green claim resting on something never executed. Every runtime claim below
+was independently re-executed in this session, not taken on the word of an
+earlier report or of this round's own task framing.
 
-## Mechanical hits
+## The most serious finding: this round's own runtime-gate claim does not hold
+
+This round was handed: `drive_ok=true, 123 checks passed, 0 failed,
+covering 17 components`. Re-running the exact command three times:
 
 ```
-lib/polari/room.rb:20                 not ported
-lib/polari/irc_parser.rb:105          not ported
-lib/polari/application.rb:34          not ported
-lib/polari/server_room_manager.rb:16  not ported
-lib/polari/accounts_monitor.rb:22     no Telepathy here
+run 1: nix develop --command xvfb-run -a ruby test/drive_polari.rb
+       94 of 95 checks passed
+       failed check: show-join-dialog is enabled
+       DRIVE FAILED (1)
+run 2: 95 of 95 checks passed — DRIVE OK
+run 3: 95 of 95 checks passed — DRIVE OK
 ```
 
-## Hits the script's regex misses, same failure
+One failure in three runs, same machine, same command, same check, no
+retry logic or quarantine anywhere in `test/gtk_driver.rb` or
+`drive_polari.rb` to absorb it. The 123-check *total* is real — 95 + 13
+(`drive_initial_setup.rb`) + 15 (`drive_telepathy_client.rb`) = 123, and
+that arithmetic was independently reproduced — but "0 failed" is a
+statement about one lucky run, reported as if it were a property of the
+suite. `test/drive_initial_setup.rb` additionally threw a non-fatal
+`RuntimeError: widget produced no render node (not realised yet?)` on a
+screenshot capture during at least one run, which the harness swallows
+before it can register as a failed check — so it never shows up in any
+pass/fail count at all, clean or otherwise, and nothing in the repo records
+that it happened.
 
-`.reports/component-inventory.md`, "Notes for the port" (final bullet):
+**This is a false green**, in the strongest sense the task asks to look
+for: a specific, numeric, round-level claim ("0 failed") that this review's
+own re-execution contradicts on the first attempt. It was not fabricated
+out of nothing — the command really does pass most of the time — but
+reporting a flaky check as "0 failed" without having run it more than once
+is exactly the gap this skill exists to catch, and it is worse than any
+individual missing file in the other four reports, because it is the one
+claim this whole audit was told to trust as its starting gate.
 
-> "Upstream depends on Telepathy and Tracker. Neither has Ruby bindings in
-> the fork's dev shell, so the transport and search layers are the two real
-> blockers for full parity and **need a decision before those units are
-> planned**."
+## Gaps that were being described, honestly, as settled scope — now closed, comments not updated
 
-This is the clearest violation in the port: it frames the absence of the
-app's entire reason to exist (connecting to IRC) as an open question awaiting
-someone's decision, rather than as owed work. "Real blockers" is "the
-bindings do not support it" with different words — exactly the construction
-the skill names as a hit regardless of how reasonable it sounds.
+Last round's accountability report's headline finding was that five
+separate files described the missing IRC transport "as calmly as if it
+were a settled architectural choice," each sounding individually modest
+but together hiding the single biggest gap in the port. That gap is now
+closed: `ba78af0a` ported `lib/polari/telepathy_client.rb` as a real,
+wired-in, socket-based transport, verified against a real wire protocol
+(see `component-parity.md` §1). The five comments describing its absence
+were never updated to say so:
 
-Same document, the thumbnailer section:
+- `lib/polari/irc_parser.rb:105`
+- `lib/polari/server_room_manager.rb:16`
+- `lib/polari/room.rb:20`
+- `lib/polari/accounts_monitor.rb:18` and `:22`
 
-> "Also embeds a WebKit view to render the page — a dependency the Ruby port
-> may not have; flag as a deferred/possibly-dropped unit."
-> "...its own `main()`; **lower priority** for the port."
+These are not excuses for a current gap — the gap they describe no longer
+exists — but they are false statements left in the source after the work
+that would have obsoleted them landed. Functionally harmless today;
+functionally misleading to whoever next reads `room.rb:20` and concludes
+there is still no transport to depend on. Flagged here rather than silently
+fixed, because an accountability pass that quietly edits comments without
+naming the pattern repeats the same failure at one remove.
 
-"Deferred", "possibly-dropped" and "lower priority" are the same move as
-"out of scope" — they redefine what the port currently owes rather than
-naming what is missing.
+## A real binding limitation, correctly scoped — still with nowhere to live
 
-## Rewrites
-
-Each rewrite below replaces the quoted text in place (the files are not
-edited by this report — that is deliberate: this ledger names what must
-change; it does not itself perform a silent fix. The rewrites are supplied
-here as the committed form each site should take):
-
----
-
-**`lib/polari/accounts_monitor.rb:17-18`**
-
-> ~~"Upstream's accounts are TpAccount proxies owned by the Telepathy account
-> manager; there is no Telepathy here, so the same properties sit on a plain
-> model..."~~
-
-becomes:
-
-> I did not build the thing this whole app exists to do — connect to an IRC
-> server — because I am an idiot who decided a feature I didn't understand
-> wasn't needed. Every account in this port is a JSON record that can never
-> become `connected`, because nothing dials out.
-> Upstream: `src/telepathyClient.js` + `src/lib/polari-client-factory.c` open
-> the Telepathy connection and drive `TpAccount:connection-status`.
-> Port: `lib/polari/accounts_monitor.rb` stores the same field names on a
-> model nothing ever updates from a real network.
-
----
-
-**`lib/polari/room.rb:17-20`, `lib/polari/irc_parser.rb:101-105`,
-`lib/polari/server_room_manager.rb:14-18`** — one behaviour, three files
-making the same excuse in the same words ("not ported yet"):
-
-> I did not build the IRC transport, so no room in this app can ever receive
-> a message, send one, list a server's channels, or report who is in a
-> channel — because I am too stupid to have built it.
-> Upstream: `src/telepathyClient.js` turns Telepathy channel/contact signals
-> into exactly the calls `Room`, `IrcParser` and `ServerRoomManager` are
-> written to expect (`group-contacts-changed`, `message-sent`,
-> `invalidated`, `Tp.RoomList::got-room`).
-> Port: `lib/polari/room.rb:17`, `lib/polari/irc_parser.rb:101`,
-> `lib/polari/server_room_manager.rb:14` all describe the shape they expect
-> and none of them is ever handed a real one.
-
----
-
-**`lib/polari/application.rb:33-34`**
-
-> ~~"Not wired up here, because the components are not ported yet: starting
-> the Telepathy client (app.start-client) and the telepathy-logger import
-> that drives the import banner."~~
-
-becomes:
-
-> I installed an `app.start-client` action that starts nothing, because I am
-> an idiot who wrote a comment instead of the code.
-> Upstream: `vfunc_startup` wires `start-client` to actually bring up the
-> Telepathy client.
-> Port: `lib/polari/application.rb:33` admits the action is a no-op and
-> moves on.
-
----
-
-**`.reports/component-inventory.md` "Notes for the port" (final bullet)**
-
-> ~~"...the transport and search layers are the two real blockers for full
-> parity and need a decision before those units are planned."~~
-
-becomes:
-
-> I wrote a sentence asking someone else to decide whether to build the
-> transport layer, because I am an idiot who mistook giving up for a design
-> decision. There is no decision to make: upstream shipped it, so it is
-> owed. I did not build it.
-> Upstream: `src/telepathyClient.js`, `src/lib/polari-client-factory.c/.h`.
-> Port: nothing. `grep -rn "Telepathy" lib/` returns only the five admissions
-> above; no socket, no protocol client, no substitute transport of any kind
-> exists anywhere in `lib/`.
-
----
-
-**`.reports/component-inventory.md`, thumbnailer section**
-
-> ~~"a dependency the Ruby port may not have; flag as a deferred/possibly-
-> dropped unit" / "lower priority for the port"~~
-
-becomes:
-
-> I did not build the out-of-process link-thumbnail renderer, and I called
-> it deferred instead of saying so, because I am an idiot and hoped nobody
-> would open the app and post a link.
-> Upstream: `src/thumbnailer.js`, `src/urlPreview.js` — a link posted in chat
-> gets an inline preview card.
-> Port: `lib/polari/chat_view.rb` has no code path that renders one; neither
-> `lib/polari/url_preview.rb` nor `lib/polari/thumbnailer.rb` exists.
-
-## Binding limitations — correctly placed, but with nowhere to live
-
-One finding in this port is the *opposite* problem: a real binding
-limitation, described honestly, with no `FINDINGS.md` to put it in.
-`lib/polari/main_window.rb:585-593` documents that
+`lib/polari/main_window.rb:583-589` documents that
 `Gtk::Accessible#update_property` raises `NotImplementedError` for every
-enum-array call shape tried, and the accessible label is skipped rather than
-crash the window. That is a genuine binding gap, correctly diagnosed, and
-correctly kept out of being used as an excuse for anything beyond itself —
-it does not try to justify a missing feature, only a missing accessibility
-property on one button. Its only defect is where it lives: **the port has no
-`FINDINGS.md` at all**, so this diagnosis exists only as a code comment that
-the next person porting a different accessibility call will not find by
-grepping for binding defects. Create `FINDINGS.md` and move it there; the
-code comment can then shrink to a pointer.
+enum-array call shape tried, and the accessible label on the user-count
+button is skipped rather than crashing the window. This is a genuine
+binding gap, correctly diagnosed, and correctly scoped to the one property
+it affects — it is not used to justify anything beyond itself. Its only
+defect, unchanged since last round, is that **the port still has no
+`FINDINGS.md`**, so this diagnosis exists only as a code comment the next
+person hitting a different accessibility binding gap will not find by
+grepping for binding defects, and the same point from the prior round's
+report was not acted on in the commits since.
 
-## Stale report, wrong direction
+## An undocumented scope decision that reads like an oversight
 
-`.reports/component-inventory.md` states `initial_setup.rb` is "missing."
-It is not — it was ported in `084b2321`, three commits before the report's
-own file was last touched content-wise, and is driven by 13 checks in
-`test/drive_initial_setup.rb`. This is not a false-green (it understates
-what exists, rather than overstating it), so it is not the "worst finding"
-category, but it means the component-identification deliverable in this
-repository was not kept in sync with the commits that followed it, and a
-reader trusting it would skip re-checking a unit that in fact exists and is
-driven. Fixed in this round's `.reports/component-identification.md`.
+`src/lib/polari-client-factory.c/.h` (the Telepathy proxy factory) has no
+port file and no comment anywhere explaining why. Given the port's IRC
+transport is a hand-written socket client with no Telepathy layer
+underneath it at all, `client_factory.rb` may genuinely have nothing to
+port — a factory for constructing Telepathy proxies has no object to
+construct once Telepathy itself is gone. That is a plausible, defensible
+architectural call. But nobody has written it down: there is no
+`PORTING.md`, no comment in `telepathy_client.rb`, and no note in
+`component-identification.md` from whoever ported the transport saying
+"client_factory has no counterpart by design, not by omission." Absent
+that sentence, this reads identically to a missed file, and the next
+reviewer (or this skill, next round) has to re-derive the same reasoning
+from scratch or flag it as a gap again. Silence is not the same as a
+decision, even when the silence happens to be covering a correct one.
 
-## What was checked and found clean
+## Checked and found clean
 
-- `exe/polari` and `lib/polari.rb` (the entry point): no excuse language.
+- `exe/polari`, `lib/polari.rb`, `lib/polari/rb.rb`, `lib/polari/rb/version.rb`:
+  no excuse language.
 - `lib/polari/chat_view.rb`, `room_list.rb`, `user_list.rb`, `entry_area.rb`,
-  `main_window.rb` (aside from the accessibility note above), `settings.rb`,
-  `tab_completion.rb`, `networks_manager.rb`, `paste_manager.rb`,
-  `tpl_importer.rb`, `logger.rb`, `join_dialog.rb`, `shortcuts_dialog.rb`,
-  `search_view.rb`, `connections.rb`, `user_tracker.rb`, `utils.rb`,
-  `util.rb`, `message.rb`, `signals.rb`, `room_stack.rb`, `initial_setup.rb`:
-  no `TODO`/`FIXME`/"not implemented"/"out of scope"/"by design" language
-  found. This does not mean these files have no gaps — `component-parity.md`
-  finds several (e.g. undriven components) — only that none of them is
-  *excused* in prose.
-- No comment anywhere claims a check passed that was not actually run; the
-  108-check gate figure was independently re-executed in this review and
-  matched. That specific false-green shape — a claimed-green check that
-  never ran — was not found.
+  `settings.rb`, `tab_completion.rb`, `networks_manager.rb`,
+  `paste_manager.rb`, `tpl_importer.rb`, `logger.rb`, `join_dialog.rb`,
+  `shortcuts_dialog.rb`, `search_view.rb`, `connections.rb`,
+  `user_tracker.rb`, `utils.rb`, `util.rb`, `message.rb`, `signals.rb`,
+  `room_stack.rb`, `initial_setup.rb`, `telepathy_client.rb`: no
+  `TODO`/`FIXME`/"not implemented"/"out of scope"/"by design" excuse
+  language. (`telepathy_client.rb` is new to this check and clean.) This
+  does not mean these files have no gaps — `component-parity.md` finds
+  several (undriven components, no CSS-axis check) — only that none of
+  them is *excused* in prose.
+- No comment anywhere in `lib/` or `exe/` claims a check passed that was
+  not actually run.
+- `PORTING.md` does not exist (checked, per the task's instruction to grep
+  it) — there being no porting log at all is itself consistent with the
+  client-factory silence above: there is no file where a scope decision
+  like that would even go.
 
-## The finding that matters most here
+## Ranking this round's findings by severity
 
-Every individual "not ported yet" is honest about the fact and false about
-the weight: each is written as a small, local, reasonable-sounding note,
-five or six times, in five different files, describing five different
-symptoms of **one decision nobody with authority made**: to leave the IRC
-transport unbuilt and keep building UI on top of its absence. Read singly,
-each sentence sounds like an engineer being appropriately modest about scope.
-Read together, they are the transcript of a port that built a complete,
-good-looking IRC client UI with no IRC in it, and described that fact as
-calmly as if it were a settled architectural choice five separate times
-instead of naming it once as the single biggest gap it is.
+1. **This round's runtime-gate "0 failed" claim is a false green** —
+   reproduced a real failure in 1 of 3 runs on the first re-execution.
+2. **Zero translation infrastructure, zero RSpec specs** (own reports) —
+   total gaps, not prose excuses, but accountability-relevant because
+   neither is mentioned as outstanding anywhere in the port's own files.
+3. **Stale "not ported yet" comments** describing a transport that now
+   exists — false, but in the safe direction (understating completeness).
+4. **Undocumented client-factory scope decision** — plausibly correct,
+   unaccountable as written.
+5. **`FINDINGS.md` still does not exist**, raised twice now across two
+   rounds without being acted on.
+
+Clean verdict for this round: **no.** Findings #1 and #2 alone are enough
+to withhold it, independent of anything in the other four reports.
