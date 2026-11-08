@@ -1,85 +1,68 @@
-# Translation parity — Polari
+# Translation parity — Polari (round 3)
 
 | | |
 |---|---|
 | Upstream | `main` @ `dc5d9e34` |
-| Port | `ruby` @ `ae37f5b2` |
-| Domain | `polari` (from `meson.project_name()`) |
+| Port | `ruby` @ `c9a99285` |
+| Domain | `polari` |
 | Upstream messages | 210 |
 | Ported | 0 |
 | Gaps | 210 |
-| Extra (untranslated) | 0 |
-| Upstream occurrences | 223 across 210 messages (8 reused) |
-| Port occurrences | 0 |
-| Upstream languages | 63 `.po` files, 11,544 translated, 260 untranslated, 32 fuzzy |
+| Upstream languages | 63 `.po` files |
 | Languages shipped by the port | **0** |
-| Build command | none — the port has no gettext target |
+| Build command for translations | none — no gettext target exists |
 
-Re-verified in this round, independently of the prior report's numbers:
-the commits since the last pass (`ba78af0a` porting the IRC transport,
-`ae37f5b2` fixing the spec helper) touched `lib/polari/telepathy_client.rb`
-and `spec/spec_helper.rb` only — neither adds, removes, or wraps a single
-translatable string, and no `po/` directory has appeared. The finding below
-is unchanged in substance from the last round and is re-confirmed, not
-copied forward unchecked:
+Re-verified independently in this round, from scratch, not copied forward:
 
 ```
-$ grep -c "_(" lib/polari/telepathy_client.rb
-0
-$ grep -rln "gettext\|require 'gettext'\|FastGettext\|_(" lib/ exe/
-(no matches)
 $ find . -maxdepth 2 -iname po
 (nothing)
+$ grep -rln "gettext\|FastGettext\|_(" lib/ exe/
+(no matches)
 $ grep -n gettext polari-rb.gemspec Gemfile
 (nothing)
-$ git log --oneline <prior-report-commit>..HEAD -- po/ lib/ | grep -i 'i18n\|gettext\|translat'
-(nothing)
+$ git diff ae37f5b2..HEAD --stat -- po/ lib/ exe/ Gemfile polari-rb.gemspec
+ lib/polari/accounts_monitor.rb    | 6 +-
+ lib/polari/irc_parser.rb          | 3 +-
+ lib/polari/main_window.rb         | 10 +-
+ lib/polari/room.rb                | 6 +-
+ lib/polari/server_room_manager.rb | 7 +-
 ```
 
-## This is not a partial gap, it is a total one
+Every one of this round's commits that touched `lib/` changed only comment
+text (the stale "not ported yet" fixes and the FINDINGS.md pointer) — none
+of them is a translatable-string change, confirmed by reading each diff
+directly rather than trusting the stat summary. No `po/` directory, no
+gettext dependency, no `_()` call anywhere, exactly as both prior rounds
+found.
+
+## This is still not a partial gap — it is a total one, unchanged
 
 - No `po/` directory anywhere on `ruby`.
-- No gettext gem (`gettext`, `fast_gettext`, `gettext_i18n_rails`, or
-  similar) in `Gemfile` or `polari-rb.gemspec`.
-- No `_()`, `N_()`, `ngettext()`, or any translation-wrapper call anywhere
-  under `lib/` or `exe/`. Every user-facing string in the port — window
-  titles, button labels, tooltips, menu items, toast text, dialog copy — is
-  a hardcoded English literal.
-- Upstream ships 63 languages with real translator work behind them
-  (11,544 translated strings across those locales); the port ships the
-  infrastructure for exactly one language, with no mechanism to add a
-  second.
+- No gettext/fast_gettext gem in `Gemfile` or `polari-rb.gemspec`.
+- No `_()`, `N_()`, `ngettext()`, or any translation wrapper under `lib/`
+  or `exe/`. Every user-facing string in the port remains a hardcoded
+  English literal.
+- Upstream ships 63 languages (11,544 translated strings); the port ships
+  the infrastructure for exactly one language, unchanged.
 
-This is as bad as a translation-parity finding gets: not a dropped msgid
-here or there, not a fuzzy string left unreviewed, but the complete absence
-of the i18n layer itself. Zero of upstream's 210 messages survived, because
-there is nowhere for a surviving message to live.
+Nothing in this round's work — flakiness fixes, stale-comment corrections,
+FINDINGS.md, PORTING.md — touches this axis at all, and none of the three
+reports this round's audit produced claims otherwise. This is the third
+consecutive round where the finding is identical in substance: zero of
+upstream's 210 messages survive, because there is nowhere for a surviving
+message to live.
 
-## Upstream message shape (for scale)
+## What would need to exist for this to move off zero (unchanged)
 
-- 210 distinct `msgid`s, 223 call-site occurrences (8 messages used twice —
-  mostly shared UI strings like "Cancel"/"Done").
-- 18 plural (`ngettext`) forms, 20 strings behind `N_()` (deferred/static),
-  and strings carrying a `C_()`-style disambiguating context (the
-  shortcuts-dialog titles all carry the `shortcut window` context, per
-  `component-inventory.md`).
-- 63 shipped `.po` files; the healthiest (e.g. major European languages)
-  are fully translated, the newest/smallest locales carry fuzzy or
-  untranslated strings — none of that granularity matters to the port's
-  score, because the port's score is 0 regardless of upstream's own
-  completeness per language.
-
-## What would need to exist for this to move off zero
-
-1. A `po/POTFILES.in`-equivalent list of port files with translatable
-   strings, and a `po/` directory.
+1. A `po/` directory and a POTFILES-equivalent list of port files with
+   translatable strings.
 2. A gettext dependency in the Gemfile, and every user-facing string
-   wrapped in `_()` (or the Ruby `gettext` gem's equivalent), including the
-   plural and context-carrying ones.
-3. At least one actually-translated non-English `.po` file to prove the
-   mechanism works end to end, not just that strings are wrapped.
+   wrapped in `_()` (or equivalent), including plural and context-carrying
+   forms.
+3. At least one actually-translated non-English `.po` file verified
+   against a running, non-English locale.
 
-None of the three exists. This finding carries forward unchanged and should
-not be marked clean until all three are in place and verified against a
-running, non-English locale — not merely against the presence of `_()`
-calls in source.
+None of the three exists after three rounds of audit. This finding should
+not be marked clean until all three are in place and independently
+verified running, not merely present in source.

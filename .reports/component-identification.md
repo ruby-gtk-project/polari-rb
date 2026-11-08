@@ -1,53 +1,71 @@
-# Component identification — Polari (refresh, 2026-11-08)
+# Component identification — Polari (refresh, 2026-11-08, round 3)
 
-This supersedes the 2026-11-07 refresh. The headline finding of that
-document — "there is no IRC transport" — is now **false**: `ba78af0a`
-("Port the IRC transport") added `lib/polari/telepathy_client.rb` (722
-lines) since that refresh was written, and it is wired into the app
-(`Polari::Application#telepathy_client` instantiates it with the real
-`accounts_monitor` and `room_manager`, `lib/polari/application.rb:125`), not
-just reachable from a test. `test/drive_telepathy_client.rb` drives it
-against a real TCP loopback server speaking actual IRC wire protocol
-(NICK/USER, 001, JOIN, 353/366, PRIVMSG both ways, QUIT) and gets 15/15
-checks — re-run twice in this pass, both `DRIVE OK`. This is a real
-correction, not a restatement: the previous round's dominant finding no
-longer holds and continuing to cite it would itself be a false claim.
+| | |
+|---|---|
+| Upstream | `main` @ `dc5d9e34` |
+| Port | `ruby` @ `c9a99285` |
 
-## File-existence corrections
+This refresh re-derives the file inventory against upstream from scratch
+(`git ls-tree -r --name-only origin/main`, `git show origin/main:<path>`
+for the files in question) rather than trusting the prior round's table.
 
-| Upstream unit | Prior refresh said | Actual state (2026-11-08) |
-|---|---|---|
-| `src/telepathyClient.js` | missing — "no IRC transport at all" | **exists** — `lib/polari/telepathy_client.rb` (722 lines), wired into `Application`, driven 15/15 by `test/drive_telepathy_client.rb` |
-| `src/lib/polari-client-factory.c/.h` | missing | **still missing** — upstream's factory mediates `TpAccountManager`/`TpSimpleClientFactory` construction of Telepathy proxies; the port's socket-based transport has no Telepathy layer to factory, so this may be a legitimate architectural no-op rather than a gap, but nothing in the port says so — see `accountability-ensurance.md` |
-| `src/urlPreview.js` | missing | **still missing** — no inline link-preview card anywhere in `chat_view.rb` |
-| `src/thumbnailer.js` | missing | **still missing** — the separate WebKit thumbnailer binary upstream spawns for `urlPreview.js`; moot until that exists, but still an unported upstream unit |
-| `po/` (63 locales) | missing in full | **still missing in full** — see `translation-parity.md` |
+## What changed since the last refresh (`ae37f5b2`)
 
-## Stale excuse language the transport port left behind
+Commits `5ebfcc3b` and `c9a99285` landed between the last audit and this
+one. Verified by reading the diffs, not just the commit subjects:
 
-Five separate comments across four files still say the transport "is not
-ported yet," now describing code that has been ported for one commit:
+- The five stale "not ported yet" comments the last two rounds flagged
+  (`irc_parser.rb:105`, `server_room_manager.rb:16`, `room.rb:20`,
+  `accounts_monitor.rb:18,:22`) are now corrected to describe
+  `telepathy_client.rb` as ported. Confirmed by reading each file.
+- `PORTING.md` now exists and documents, in detail, why
+  `src/lib/polari-client-factory.c/.h` has no `lib/polari/client_factory.rb`
+  counterpart (the port's socket transport has no `TpAccountManager`/
+  `TpSimpleClientFactory` machinery for a factory to intercept). This is a
+  real, substantive scope decision written down, not a placeholder file —
+  read in full, it closes last round's "undocumented scope decision" gap.
+- `FINDINGS.md` now exists and documents the `Gtk::Accessible#update_property`
+  enum-array binding gap. `main_window.rb`'s inline comment was shortened to
+  point at it instead of repeating it. Closes last round's "no FINDINGS.md"
+  gap, raised twice before.
+- `test/gtk_driver.rb`'s `shot` helper now counts a screenshot failure as a
+  failed check (`@failed_checks << "shot #{name}"`) instead of logging and
+  swallowing it. This closes the specific "silent screenshot error" gap from
+  the last two rounds' reports.
+- `test/drive_polari.rb` gained two new step pairs: a nick-popover check
+  (clicking a nick in the chat log) and a user-list row expand/collapse
+  check, plus `pump(100)` calls after dialog-open animations. Check count
+  rose from 95 to 115 in this file alone.
 
-- `lib/polari/irc_parser.rb:105`
-- `lib/polari/server_room_manager.rb:16`
-- `lib/polari/room.rb:20`
-- `lib/polari/accounts_monitor.rb:18` and `:22`
+## File-existence status (re-verified against `origin/main`, not copied forward)
 
-None of these is a *current* excuse for missing behaviour — the behaviour
-exists now — but each is now a false statement in the source, and the
-previous round's accountability report specifically flagged this five-files
-pattern as "the finding that matters most" for the opposite reason (it was
-true then and used to normalize a major gap). Leaving the sentences in place
-after the gap closes trades one risk for another: the next person reading
-`room.rb:20` will conclude there is still no transport and either re-port it
-or route around a dependency that already exists. See
-`accountability-ensurance.md` for the categorization.
+| Upstream unit | Status |
+|---|---|
+| `src/telepathyClient.js` | ported — `lib/polari/telepathy_client.rb`, wired into `Application`, driven by `test/drive_telepathy_client.rb` (16/16 this run — see `component-parity.md`) |
+| `src/lib/polari-client-factory.c/.h` | **no port file, now documented as an intentional no-op** in `PORTING.md` — no longer an unaccountable gap |
+| `src/urlPreview.js` | **still missing** — no inline link-preview card in `chat_view.rb` or anywhere else |
+| `src/thumbnailer.js` | **still missing** — the WebKit thumbnailer binary `urlPreview.js` spawns; moot until `urlPreview.rb` exists, but still an unported upstream unit |
+| `po/` (63 locales) | **still missing in full** — see `translation-parity.md`, unchanged at zero |
 
-## Components exercised by zero check (unchanged from prior refresh)
+## Components exercised by zero check — re-checked against the current drive scripts, not assumed unchanged
 
-Still true after the transport port — cross-referencing `lib/polari/*.rb`
-against every identifier in all three drive scripts
-(`drive_polari.rb`, `drive_initial_setup.rb`, `drive_telepathy_client.rb`):
+Grepped `test/drive_polari.rb`, `test/drive_initial_setup.rb`, and
+`test/drive_telepathy_client.rb` for every port filename's identifiers
+after this round's widening of `drive_polari.rb`:
+
+```
+$ for f in search_view networks_manager paste_manager server_room_manager \
+    tab_completion tpl_importer logger; do
+    grep -l "$f" test/*.rb
+  done
+(no output for any of the seven)
+```
+
+All seven are still unreferenced by any drive script, unchanged from the
+last two rounds despite this round's widening of `drive_polari.rb` — the
+new checks added (nick popover, user-list row expansion) exercise
+`chat_view.rb` and `user_list.rb`, both of which already had coverage, not
+any of the seven zero-coverage files:
 
 - `lib/polari/search_view.rb`
 - `lib/polari/networks_manager.rb`
@@ -57,13 +75,15 @@ against every identifier in all three drive scripts
 - `lib/polari/tpl_importer.rb`
 - `lib/polari/logger.rb`
 
-Seven of the (now 29, `signals.rb` and version files excluded) port files
-are built but never driven by any script in `test/`. A component no check
-exercises is unverified, not done — the task's own framing for this round.
+A component no check exercises is unverified, not done — unchanged finding,
+carried forward because it is still true, not because it was copied.
 
 ## Scope of this refresh
 
-As before, this document does not re-walk every widget/CSS/signal table —
-`component-inventory.md`'s per-unit tables for application, main window,
-connections, join dialog etc. are reused as-is. This refresh updates the
-transport-layer finding and adds the stale-comment finding above.
+As with prior rounds, the widget/CSS/signal-level tables in
+`component-inventory.md` are reused as-is; nothing in this round's commits
+touched the window/dialog/menu surface those tables describe. This refresh
+is specifically about what changed (stale comments, FINDINGS/PORTING, the
+shot-failure counting fix) and what, despite the round's framing, still has
+not changed (the seven undriven files, translations, the two missing
+upstream files).

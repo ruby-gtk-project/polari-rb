@@ -1,70 +1,65 @@
-# Test parity — Polari
+# Test parity — Polari (round 3)
 
 | | |
 |---|---|
 | Upstream | `main` @ `dc5d9e34` |
-| Port | `ruby` @ `ae37f5b2` |
+| Port | `ruby` @ `c9a99285` |
 | Upstream tests | 18 |
 | Ported (named, bijective) | 0 |
 | Gaps | 18 |
-| RSpec suite (`spec/*_spec.rb`) | **0 files — does not exist** |
-| Drive scripts run | `test/drive_polari.rb`, `test/drive_initial_setup.rb`, `test/drive_telepathy_client.rb` |
+| RSpec suite (`spec/*_spec.rb`) | **0 files — still does not exist** |
+| Drive scripts run | `test/drive_polari.rb` (115), `test/drive_initial_setup.rb` (16), `test/drive_telepathy_client.rb` (17) = 148 |
 
-All three drive commands were actually re-executed in this review, several
-times each, not assumed from the gate's report or from the prior round's
-document.
+All three drive commands were re-executed in this review (7 total runs of
+`drive_polari.rb` alone across two batches), live against `c9a99285`.
 
-## The gate's "0 failed" does not reproduce — say so plainly
+## The gate's "0 failed" does not reproduce reliably — still
 
 ```
-run 1: nix develop --command xvfb-run -a ruby test/drive_polari.rb
-       94 of 95 checks passed
-       failed check: show-join-dialog is enabled
-       DRIVE FAILED (1)
-run 2: same command — 95 of 95 checks passed, DRIVE OK
-run 3: same command — 95 of 95 checks passed, DRIVE OK
+run (batch A, #3): errored step: typing into the entry area and pressing
+                    Enter sends the text (NoMethodError: undefined method
+                    'entry_area' for nil)
+                    errored step: a slash command runs through the IRC
+                    parser (same cause)
+                    DRIVE FAILED (27)
+all other 6 runs:   115 of 115 — DRIVE OK
 ```
 
-`test/drive_initial_setup.rb` (13/13, `DRIVE OK` every run) also logged a
-non-fatal `RuntimeError: widget produced no render node (not realised
-yet?)` while taking one screenshot — swallowed by the harness before it
-could count as a failed check, so it never shows up in the pass count, but
-it is evidence the suite is running closer to the edge of stable than
-"123 passed, 0 failed" suggests.
+This is the third round in a row this check has caught the gate's "0
+failed" overstating the suite's actual reliability. Last round's flake
+(`show-join-dialog is enabled`) was fixed this round (animations disabled,
+`pump(100)` added after dialog-open calls) — that specific symptom did not
+recur in any of the 7 runs here. But a different step now fails
+intermittently for a related reason: `room_stack.view_for_room(@room)`
+returns `nil` because the room's view is not guaranteed to be registered by
+the time the script reaches that step. The fixes this round targeted a
+symptom, not the general pattern (steps racing ahead of widget-tree state
+under Xvfb), so the suite is flaky in a new way instead of not flaky.
 
-`test/drive_telepathy_client.rb` was stable across two runs: 15/15 both
-times, `DRIVE OK`. Totals: 95 + 13 + 15 = **123**, matching this round's
-stated gate figure — the total is real. The "0 failed" is not reliably
-real; see `component-parity.md` §2 and `accountability-ensurance.md` for
-why a flaky check reported as a clean pass is this round's most serious
-finding, worse than any of the gaps below.
+**148, the total, is real** — 115 + 16 + 17 verified by direct arithmetic
+on this round's own re-run counts. **0 failed is not a property of the
+suite** — same category of finding as both prior rounds, with a new
+concrete reproduction.
 
-## There is no RSpec suite at all
+## There is still no RSpec suite at all
 
 ```
 $ find spec -name '*_spec.rb'
 (no matches)
 ```
 
-`spec/spec_helper.rb` and `spec/README.md` describe a full `kettle-test`
-harness (env stubbing, time travel, output capture, rake-task context) and
-it loads cleanly, but **nothing uses it** — zero spec files exist. The
-entire test surface of this port is the three `test/drive_*.rb` UI-driver
-scripts; there is no unit-level suite that runs without a display at all,
-despite the harness for one being fully wired up and unused. A harness that
-loads but asserts nothing is a gap, not infrastructure in progress — it has
-never been run with anything in it, so "the kettle-test suite" cannot be
-claimed as even partial coverage.
+Unchanged since both prior rounds. `spec/spec_helper.rb` still loads a full
+`kettle-test` harness that nothing uses. Zero unit-level, no-display tests
+exist; the entire test surface remains the three UI-driver scripts.
 
-## Upstream census
+## Upstream census (unchanged — re-verified)
 
 ```
-$ .claude/skills/test-parity/scripts/test-census.sh /tmp/polari-upstream
+$ .claude/skills/test-parity/scripts/test-census.sh /tmp/polari-upstream-dc5d9e34
 ```
 
-finds **18** test cases, all `g_test_add_func` in `src/tests/test-util.c`
-(the only test file upstream has — no `test-room.c`, `test-message.c`;
-`polari-room.c`/`polari-message.c` are untested upstream too):
+Still finds **18** test cases in `src/tests/test-util.c`, the only test
+file upstream has:
 
 | Group | Cases |
 |---|---|
@@ -72,59 +67,54 @@ finds **18** test cases, all `g_test_add_func` in `src/tests/test-util.c`
 | `/util/match-nick/*` | `match`, `match2`, `nomatch`, `mixed-case`, `mixed-case2`, `numeric`, `numeric2`, `leading-junk`, `trailing-junk`, `away` (10) |
 | `/util/match-identify/*` | `match`, `nomatch`, `case`, `login`, `no-user` (5) |
 
-18 cases, one file; `meson.build`'s `tests/` target registers exactly this
-one binary — cross-checked, no discrepancy.
-
 ## Port census
 
-The port's 123 checks live in the three drive scripts above, driving the
-live app through `GtkDriver`, not a unit-test framework, and none maps its
-checks to upstream's 18 test names by name. The one place the port
-acknowledges upstream's suite exists at all is still `test/drive_polari.rb`
-around step 54 (nick-helper checks):
+The port's nick-helper checks in `test/drive_polari.rb` (around the
+"Util's nick helpers match upstream's documented pinned cases" step) are
+unchanged from both prior rounds — still exactly these five:
 
 ```ruby
-d.check('nick42 is its own base nick') { Polari::Util.get_basenick('nick42') == 'nick42' }
-d.check('nicky does not match nick') { !Polari::Util.match_nick('nicky is here', 'nick') }
+d.check('nick42 is its own base nick') { ... }
+d.check('nicky does not match nick') { ... }
 d.check('nick does match on its own') { ... }
 d.check("identify with no username reports an empty one") { ... }
 d.check('IRC colour codes are stripped from topics') { ... }
 ```
 
-Five checks against eighteen named upstream cases — unchanged since last
-round; the transport port did not touch `util.rb` or its checks.
+Five checks against eighteen named upstream cases. This round's 20 new
+checks in `drive_polari.rb` (95 → 115) are the nick-popover and user-list
+expand/collapse checks (`component-parity.md` §4) — none of them touch
+`util.rb` or add coverage toward the 18 named upstream cases. **Still
+0/18** by the skill's bijective-name definition, unchanged across three
+rounds.
 
 | Upstream case | Covered by the port's 5 checks? |
 |---|---|
 | `base-nick/basic`, `base-nick/trailing` | not individually |
 | `base-nick/numeric` | not covered at all |
-| `match-nick/match`, `match2`, `mixed-case`, `mixed-case2`, `numeric`, `numeric2`, `leading-junk`, `trailing-junk`, `away` | one generic `match` + one `nomatch`; the other 8 boundary cases are not individually asserted |
-| `match-identify/match`, `nomatch`, `case`, `login`, `no-user` | one `no-user` case present; `match`, `nomatch`, `case`, `login` are not |
-
-By the skill's bijective-name definition this is **0/18**, not partial
-credit, unchanged from last round.
+| `match-nick/*` (10 cases) | one generic `match` + one `nomatch`; the other 8 boundary cases not individually asserted |
+| `match-identify/*` (5 cases) | one `no-user` case present; `match`, `nomatch`, `case`, `login` are not |
 
 ## Extra
 
-- `test/drive_polari.rb` — 95 checks on the live window: connections, join
-  dialog, room list, chat view, entry area, user list, settings
-  persistence, toast undo, geometry restore.
-- `test/drive_initial_setup.rb` — 13 checks on the first-run window.
-- `test/drive_telepathy_client.rb` — 15 checks against a real IRC wire
-  protocol on a loopback socket. New since last round, and the strongest
-  test file in the port — this is the one place "extra" coverage is
-  actually deeper than what upstream's C suite does (upstream has no
-  integration test of the Telepathy transport at all).
+- `test/drive_polari.rb` — 115 checks, now including the nick-popover and
+  user-list-expansion checks added this round.
+- `test/drive_initial_setup.rb` — 16 checks (was 13; grew with this round's
+  widening, stable 2/2 runs this review).
+- `test/drive_telepathy_client.rb` — 17 checks (was 15), stable 2/2 runs.
 
-None of the three corresponds to an upstream unit test — genuinely extra,
-and valuable, but outside the parity count by the skill's own rule.
+None of the three corresponds to an upstream unit test by name — genuinely
+extra and valuable (the telepathy drive script in particular covers ground
+upstream's own C suite never touches), but outside the parity count by the
+skill's own rule, same as both prior rounds.
 
 ## What the gate does not tell you
 
-The gate is a real, substantial UI/integration regression harness, newly
-including a transport-level one. It still inherits none of upstream's
-documented edge cases for nick/identify matching (0/18, unchanged), has no
-unit-level spec suite despite one being fully set up and unused, and — new
-this round — does not reproduce its own "0 failed" claim reliably. Three
-different, independent reasons this port's test posture is weaker than
-"123 checks passed" implies on its own.
+The suite grew (123 → 148 checks) and one real flake was fixed, but the
+suite's reliability property — "0 failed" holds most of the time, not
+always — did not change, only which step is the weak point. There is still
+no unit-level spec suite despite one being fully wired and unused, and
+there is still 0/18 coverage of upstream's documented nick/identify edge
+cases. Clean verdict on test parity: no, for the same three reasons as
+both prior rounds, with the flakiness finding now independently
+reproduced a third time (different symptom each time).

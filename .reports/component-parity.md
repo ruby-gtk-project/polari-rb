@@ -1,61 +1,91 @@
-# Component parity — Polari
+# Component parity — Polari (round 3)
 
 | | |
 |---|---|
 | Upstream | `main` @ `dc5d9e34` |
-| Port | `ruby` @ `ae37f5b2` |
-| Units with full (4-axis + driven) parity | 0 / ~21 |
+| Port | `ruby` @ `c9a99285` |
+| Units with full (4-axis + driven) parity | 0 / ~24 |
 
-This is an adversarial pass over this round's own runtime-gate claim
-(123 checks, 17 components, `drive_ok=true`, 0 failed), not a restatement
-of it. Every drive script was re-run multiple times in this review, live,
-not assumed from a prior report.
+This round was handed: `drive_ok=true, 148 checks passed, 0 failed,
+covering 24 components`. Every drive script was re-run multiple times in
+this review, live, against `c9a99285`, not assumed from the gate's own
+report or from either prior round's document.
 
-## 1. The transport gap is closed — correct the previous finding, do not carry it forward
-
-The previous round's `component-parity.md` led with "no IRC transport at
-all... every component is a facade over nothing." That is no longer true.
-`lib/polari/telepathy_client.rb` opens a real `TCPSocket`, speaks real IRC
-protocol, and is instantiated by `Application` for real use, not only by a
-test. `test/drive_telepathy_client.rb` proves this against a real server on
-a loopback socket (registration, JOIN, member list from a real NAMES reply,
-a real incoming PRIVMSG landing in the chat view, a real outgoing PRIVMSG
-the fake server reads back, QUIT tearing the channel down) — 15/15, reread
-and re-run twice in this pass. Repeating last round's "facade over nothing"
-framing this round would itself be a false claim; this report does not.
-
-## 2. The runtime gate's "0 failed" does not reproduce reliably
-
-This round's stated gate is `drive_ok=true, 123 checks passed, 0 failed,
-covering 17 components`. `test/drive_polari.rb` (95 checks) +
-`test/drive_initial_setup.rb` (13) + `test/drive_telepathy_client.rb` (15)
-= **123**, so the total is real and was independently reproduced. But run
-three separate times in this review, `test/drive_polari.rb` was:
+## 1. The 148-check total is real; "0 failed" is not stable
 
 ```
-run 1: 94 of 95 checks passed
-       failed check: show-join-dialog is enabled
-       DRIVE FAILED (1)
-run 2: 95 of 95 checks passed — DRIVE OK
-run 3: 95 of 95 checks passed — DRIVE OK
+test/drive_polari.rb            115 checks
+test/drive_initial_setup.rb      16 checks
+test/drive_telepathy_client.rb   17 checks
+                                ----
+                                 148  ✓ matches the stated gate total
 ```
 
-One failure in three runs on the same check, same machine, same command —
-`show-join-dialog is enabled` — with no retry or quarantine in the harness.
-`test/drive_initial_setup.rb` also threw a non-fatal `RuntimeError: widget
-produced no render node (not realised yet?)` while capturing a screenshot
-on at least one run, swallowed before it could fail the check count.
-**A flaky check is not a passed check reported honestly** — "0 failed" is
-a true statement about the one run someone happened to report, and a false
-one about the suite's actual behavior. Treat this round's gate number as
-unverified-stable, not as the clean bill of health its own framing implies.
-See `accountability-ensurance.md` for why this is this review's most
-serious finding.
+Re-running `test/drive_polari.rb` repeatedly (7 runs total across two
+batches in this session):
 
-## 3. Units with no check at all (0/4 axes verified — not driven, not screenshotted)
+```
+batch A, run 1: 115 of 115 checks passed — DRIVE OK
+batch A, run 2: 115 of 115 checks passed — DRIVE OK
+batch A, run 3: errored step: typing into the entry area and pressing
+                Enter sends the text (NoMethodError: undefined method
+                'entry_area' for nil)
+                errored step: a slash command runs through the IRC parser
+                (NoMethodError: undefined method 'entry_area' for nil)
+                DRIVE FAILED (27)
+batch B, run 1: 115 of 115 checks passed — DRIVE OK
+batch B, run 2: 115 of 115 checks passed — DRIVE OK
+batch B, run 3: 115 of 115 checks passed — DRIVE OK
+```
 
-Unchanged by the transport port, because none of these units is reachable
-from any of the three drive scripts:
+One failure in 7 runs, same machine, same command. The symptom is new and
+different from the `show-join-dialog is enabled` flake the last round's
+report caught and this round's commits fixed — this one is
+`room_stack.view_for_room(@room)` returning `nil` at the step that types
+into the entry area, i.e. the room view is not guaranteed to be registered
+in `@views` by the time the drive script reaches that step. The fix that
+shipped this round (turning off GTK animations, counting shot failures)
+closed the *specific* flake it targeted but did not make the suite
+deterministic — it has a different single point of timing-dependent
+failure now instead of zero.
+
+**This repeats, in substance, the finding both prior rounds made about the
+gate's "0 failed" claim.** The fact that the specific flake changed (join
+dialog → entry area) between rounds, while the underlying property — "the
+suite fails intermittently and the gate reports 0 failed because someone
+ran it once" — did not change, is itself informative: the fixes applied
+this round treated symptoms, not the root cause (UI state the test
+advances past before a widget finishes being built/registered). Treat this
+round's "0 failed" the same way the prior two rounds treated theirs: real
+most of the time, not a property of the suite.
+
+`test/drive_initial_setup.rb` (16/16 both runs) and
+`test/drive_telepathy_client.rb` (17/17 both runs) were stable across every
+run in this review.
+
+## 2. Closed since the last round
+
+- **Stale "not ported yet" comments** (5 locations, 4 files) — corrected.
+  Verified by reading `irc_parser.rb:105`, `server_room_manager.rb:16-19`,
+  `room.rb:20`, `accounts_monitor.rb:18-22` directly.
+- **Swallowed screenshot failures** — `gtk_driver.rb`'s `shot` now adds a
+  failed check instead of printing and continuing. Did not independently
+  trigger a screenshot failure in this round's runs to confirm the new path
+  fires, but the code change is real and matches the fix prior rounds
+  called for.
+- **Undocumented client-factory scope decision** — `PORTING.md` now states
+  the reasoning in full. Read and agree it is a defensible architectural
+  call, correctly scoped to the one file it's about.
+- **No FINDINGS.md** — now exists, documents the one known binding gap
+  (`Gtk::Accessible#update_property`).
+
+## 3. Units with no check at all — unchanged, still 0/4 axes verified
+
+```
+$ for f in search_view networks_manager paste_manager server_room_manager \
+    tab_completion tpl_importer logger; do grep -l "$f" test/*.rb; done
+(no output)
+```
 
 | Unit | Upstream file(s) | Port file | Checks in any drive script |
 |---|---|---|---|
@@ -67,50 +97,53 @@ from any of the three drive scripts:
 | Old-log import | — | `lib/polari/tpl_importer.rb` | 0 |
 | Logging | — | `lib/polari/logger.rb` | 0 |
 
-Per the task's own framing, these seven are gaps regardless of whether the
-code underneath is correct.
+This round's "24 components" gate figure cannot include these seven as
+*driven* components — if they are among the 24 counted, the count itself
+overstates verification; if they are not among the 24, the port has at
+least 7 more files than the gate claims to cover, either way the same
+underlying gap the task asked to watch for (a component no check exercises
+is unverified, not done) stands, unchanged across three rounds now.
 
-## 4. Units covered by the drive scripts (sampled, not exhaustive)
+## 4. Units newly covered this round
 
-| Unit | Verdict | Note |
-|---|---|---|
-| `Polari::TelepathyClient` / `IrcConnection` | parity (driven, real wire protocol) | 15/15, see §1 |
-| `Polari::Application` / menu / actions | parity (driven, partial) | 31+9 actions catalogued in `component-inventory.md`; the drive scripts exercise a subset |
-| `Polari::InitialSetupWindow` | parity (driven), but see §2 for the screenshot error | 13/13 |
-| `Polari::ConnectionProperties` | parity (driven) | server/nick fields, Apply sensitivity |
-| `Polari::JoinDialog` | partially driven, and now with a flaky check attached | the show-join-dialog sensitivity check is the one that failed in §2 |
-| `Polari::MainWindow`, `ChatView`, `RoomList`, `RoomStack`, `EntryArea`, `UserList` | partially driven | geometry/title/subtitle checks and screenshots, not a full widget/CSS/signal table against `component-inventory.md`'s rows |
+- Nick popover from a chat-log click (`chat_view.rb#build_nick_popover`) —
+  new checks, type and nickname verified.
+- User-list row expand/collapse on activation (`user_list.rb`) — new
+  checks, both directions verified.
 
-No unit has been driven against its CSS classes or stylesheet
-(`data/style.css` vs upstream `data/css/style.css`) in any round so far;
-that comparison has still not been run.
+Both are real additions to files that already had partial coverage, not new
+components; they do not close any of the seven zero-coverage files above.
 
-## 5. Known missing units (file-level)
+## 5. Known missing units (file-level, re-verified against `origin/main`)
 
 - `src/urlPreview.js` → no port file.
-- `src/thumbnailer.js` → no port file (moot until `urlPreview.rb` exists,
-  but still an unported upstream unit).
-- `src/lib/polari-client-factory.c/.h` → no port file, and no note anywhere
-  in the port saying whether this is dead weight under the new socket
-  architecture or an actual gap — see `accountability-ensurance.md`.
-- `po/` (63 locales) → see `translation-parity.md`; total, not partial.
+- `src/thumbnailer.js` → no port file (moot until `urlPreview.rb` exists).
+- `src/lib/polari-client-factory.c/.h` → no port file, but now documented
+  as an intentional no-op in `PORTING.md` — no longer counted as an
+  unaccountable gap, though it is still a file-level absence relative to
+  upstream.
+- `po/` (63 locales) → see `translation-parity.md`; still total, not
+  partial.
+
+No round so far has compared the port's stylesheet (`data/style.css`, if
+it exists) against upstream's `data/css/style.css` CSS-class-by-class; that
+comparison still has not been run.
 
 ## Gaps (summary)
 
-1. **The runtime gate's "0 failed" is not stable** — reproduced a real
-   failure in 1 of 3 runs on the same check (§2). This is this round's
-   most serious finding.
-2. **7 of ~29 non-support components have zero check coverage** (§3).
-3. **3 upstream units have no port file at all**: url preview, thumbnailer,
-   client factory (§5); translations are a fourth, tracked separately.
-4. **CSS-axis comparison still not performed**, any round.
-5. **Not every installed action is exercised by a check** — the drive
-   scripts cover a subset of the ~40 actions `component-inventory.md` lists.
-6. **Stale "not ported yet" comments** about the transport that is now
-   ported, in four files — see `component-identification.md`.
+1. **The runtime gate's "0 failed" is still not stable** — a different
+   flake than the one this round's commits fixed, reproduced once in 7
+   runs (§1). Carried forward in substance across all three rounds now.
+2. **7 of ~29 non-support components still have zero check coverage**,
+   unchanged by this round's widening of `drive_polari.rb` (§3).
+3. **2 upstream units still have no port file**: url preview, thumbnailer
+   (§5). Client factory is now documented, not a gap by this skill's
+   standard, but still absent as a file.
+4. **CSS-axis comparison has still never been performed**, any round.
+5. **Translation layer is still a total gap** — tracked in
+   `translation-parity.md`.
 
-Nothing above is excused by the 123-check gate. The gate — when it passes —
-shows the app does not crash while performing the specific things the
-harness asked it to do; it is not evidence for the seven undriven
-components, the three missing files, or the CSS axis, and this round it is
-not even reliable evidence for itself.
+Closed since last round: stale comments, swallowed screenshot failures,
+undocumented client-factory decision, missing FINDINGS.md. Real progress,
+verified by reading the diffs and the resulting files, not by trusting the
+commit subjects.
