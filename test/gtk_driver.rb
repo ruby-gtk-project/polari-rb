@@ -97,6 +97,7 @@ module GtkDriver
     # you the thing you did not think to ask about — a label that never got
     # set, a row that renders blank, a dialog that opened behind the window.
     def shot(name, widget = nil)
+      @checks += 1
       if @shots.nil?
         raise 'no shots directory configured'
       end
@@ -116,7 +117,12 @@ module GtkDriver
         end
       end
     rescue StandardError => e
-      puts "    shot #{name} failed: #{e.class}: #{e.message}"
+      # A screenshot failure (eg. the widget had no render node yet) used to
+      # be logged and swallowed here, which let a drive run report DRIVE OK
+      # despite a real problem. Count it as a failed check instead, so it
+      # shows up in the summary and flips the exit code.
+      puts "    FAIL shot #{name} (#{e.class}: #{e.message})"
+      @failed_checks << "shot #{name}"
       nil
     end
 
@@ -125,6 +131,16 @@ module GtkDriver
     # --- Running -----------------------------------------------------------
 
     def run
+      # AdwDialog (and friends) close with an animation by default, which
+      # unmaps the widget on a GTK frame-clock tick rather than synchronously
+      # with #close. One driver tick (DEFAULT_INTERVAL) is not guaranteed to
+      # outlast that animation under Xvfb's timing, which showed up as an
+      # intermittent failure of 'show-join-dialog is enabled' right after
+      # cancelling the join dialog. Turning animations off makes every
+      # close/unmap happen within the same main-loop turn as the call that
+      # triggered it, so a step's very next tick can rely on it.
+      Gtk::Settings.default.gtk_enable_animations = false
+
       yield(self, app_object)
 
       app_object.build.tap do |application|

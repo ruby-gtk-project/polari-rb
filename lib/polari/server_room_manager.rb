@@ -12,9 +12,10 @@ module Polari
   #
   # Ported from the ServerRoomManager class in src/serverRoomManager.js.
   # Upstream builds a Tp.RoomList for every account that reaches CONNECTED
-  # and collects its ::got-room infos. The listing has to come from the IRC
-  # transport (src/telepathyClient.js, not ported yet); this manager asks the
-  # account's connection for it, keeps the collected infos, and reports
+  # and collects its ::got-room infos. The listing comes from the IRC
+  # transport (telepathy_client.rb, ported from src/telepathyClient.js); this
+  # manager asks the account's connection for it, keeps the collected infos,
+  # and reports
   # loading the way upstream does — so an account with no connection has no
   # rooms to offer, which is exactly what upstream reports before a listing
   # arrives.

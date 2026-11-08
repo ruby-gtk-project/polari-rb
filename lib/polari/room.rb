@@ -16,9 +16,9 @@ module Polari
   # the base nick unless the account's user name sits between the base nick
   # and the full nick, in which case it is the user name.
   #
-  # The channel is whatever the IRC transport hands us
-  # (src/telepathyClient.js, not ported yet). Room only requires of it the
-  # interface polari-room.c requires of a TpTextChannel: the signals
+  # The channel is whatever the IRC transport hands us: telepathy_client.rb's
+  # IrcChannel (ported from src/telepathyClient.js). Room only requires of it
+  # the interface polari-room.c requires of a TpTextChannel: the signals
   # group-contacts-changed, message-sent and invalidated, a member list, and
   # methods to send a message, set the subject and add or remove members.
   class Room

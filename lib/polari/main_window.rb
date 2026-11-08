@@ -580,13 +580,9 @@ module Polari
 
         user_list_button_content.label = members.to_s
 
-        # Gtk::Accessible#update_property's C signature takes a C array of
-        # GtkAccessibleProperty enums; the ruby-gnome gobject-introspection
-        # loader has no marshalling for an enum-typed C array and raises
-        # NotImplementedError ("TODO: in Ruby -> GIArgument(array/C)
-        # [interface(enum)](GtkAccessibleProperty)") for every call shape
-        # tried, scalar arguments included — a binding gap, not a port bug.
-        # The accessible label is skipped rather than crashing the window.
+        # A ruby-gnome binding gap, not a port bug: see FINDINGS.md
+        # ("Gtk::Accessible#update_property cannot take an enum-typed C
+        # array") for the exact error and why this rescue is the fix.
         begin
           show_user_list_button.update_property(
             [Gtk::AccessibleProperty::LABEL],

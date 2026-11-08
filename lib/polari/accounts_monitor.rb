@@ -19,9 +19,9 @@ module Polari
   # properties sit on a plain model that AccountsMonitor stores in a JSON
   # file. The property names, the derived values (predefined, servers,
   # connection params with their default ports) and the notifications are
-  # upstream's, so the IRC transport (src/telepathyClient.js, not ported yet)
-  # can drive the connection state through the setters below without the
-  # widgets noticing a difference.
+  # upstream's, so the IRC transport (telepathy_client.rb's TelepathyClient,
+  # ported from src/telepathyClient.js) can drive the connection state
+  # through the setters below without the widgets noticing a difference.
   class Account
     include Signals
 

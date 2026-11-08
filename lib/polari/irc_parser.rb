@@ -102,7 +102,8 @@ module Polari
   #
   #   * sending needs a channel, so — exactly as upstream — a room without one
   #     swallows the input rather than reporting an error. The IRC transport
-  #     that provides channels is src/telepathyClient.js, not ported yet.
+  #     that provides channels is telepathy_client.rb (ported from
+  #     src/telepathyClient.js).
   #   * upstream activates app actions with (ssb)/(sssb) tuple parameters.
   #     The Ruby GLib bindings cannot build a tuple variant (an array of
   #     mixed types collapses to a string array), so the port's actions take
