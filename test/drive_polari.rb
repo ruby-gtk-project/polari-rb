@@ -216,6 +216,11 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
         dialog.connection_combo.active_text == 'Test Network'
       end
       d.check('Join starts out insensitive') { !dialog.join_button.sensitive? }
+      # The dialog's open animation runs on the frame clock, not synchronously
+      # with activating the action, same reason 05/12's shots pump first (see
+      # this file's 'run' comment on turning animations off — that covers
+      # AdwDialog's close animation, not the present/open one here).
+      pump(100)
       d.shot('03-join-dialog-main')
     end
   end
@@ -317,6 +322,27 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
     d.shot('07-message-received')
   end
 
+  d.step('clicking alice\'s nick in the chat log opens her user popover') do
+    chat_view = polari_app.window.room_stack.view_for_room(@room).chat_view
+    # Stands in for the real click the chat log's gesture controller would
+    # see (see test/drive_polari.rb's FakeChannel comment) — build_nick_popover
+    # is the exact method show_nick_popover calls to construct what the click
+    # opens.
+    @nick_popover = chat_view.send(:build_nick_popover)
+    @nick_popover.nickname = 'alice'
+  end
+
+  d.step('the nick popover carries alice\'s nickname') do
+    d.check('a Polari::UserPopover was built') { @nick_popover.is_a?(Polari::UserPopover) }
+    d.check('its nickname is alice') { @nick_popover.nickname == 'alice' }
+    # Unparent it: a real click pops it down (the real show_nick_popover
+    # caches and reuses one per tag instead of building a new one each
+    # time), and a popover left parented to the text view with no
+    # corresponding popup would otherwise sit around as a stray child for
+    # every later layout pass this script drives.
+    @nick_popover.unparent
+  end
+
   d.step('typing into the entry area and pressing Enter sends the text') do
     view = polari_app.window.room_stack.view_for_room(@room)
     view.entry_area.chat_entry.text = 'hi there'
@@ -404,6 +430,27 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
     d.shot('08-user-list')
   end
 
+  d.step('activating alice\'s row expands her inline user details') do
+    user_list = polari_app.window.user_list_popover.instance_variable_get(:@user_list)
+    row = user_list.list.children.first
+    d.check('a row for alice is in the list') { !row.nil? && row.user.alias == 'alice' }
+    user_list.list.signal_emit('row-activated', row)
+  end
+
+  d.step('the row is expanded and the details revealer opened') do
+    user_list = polari_app.window.user_list_popover.instance_variable_get(:@user_list)
+    row = user_list.list.children.first
+    d.check('the row reports expanded') { row.expand }
+    d.shot('08b-user-details-expanded')
+  end
+
+  d.step('activating the row again collapses the details') do
+    user_list = polari_app.window.user_list_popover.instance_variable_get(:@user_list)
+    row = user_list.list.children.first
+    user_list.list.signal_emit('row-activated', row)
+    d.check('the row reports collapsed') { !row.expand }
+  end
+
   d.step('closing the user list again') do
     polari_app.app.activate_action('user-list', nil)
   end
@@ -444,6 +491,7 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
     polari_app.window.visible_dialog.then do |dialog|
       d.check('a Polari::ShortcutsDialog is showing') { dialog.is_a?(Polari::ShortcutsDialog) }
       d.check('its title is set') { dialog.title == 'Keyboard Shortcuts' }
+      pump(100)
       d.shot('10-shortcuts')
       dialog.close
     end
@@ -461,6 +509,7 @@ GtkDriver.drive(Polari::Application.new, shots: SHOTS) do |d, polari_app|
       d.check('it carries every upstream developer') do
         dialog.developers.to_a == Polari::Application::DEVELOPERS
       end
+      pump(100)
       d.shot('11-about')
       dialog.close
     end
