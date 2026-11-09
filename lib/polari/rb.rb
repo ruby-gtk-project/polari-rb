@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'rb/version'
-
 # The part of Polari that loads without a display.
 #
 # This file exists because `require 'gtk4'` initialises GTK at require time
@@ -30,3 +28,4 @@ require_relative 'accounts_monitor'
 require_relative 'room'
 require_relative 'room_manager'
 require_relative 'user_tracker'
+require_relative "rb/version"
